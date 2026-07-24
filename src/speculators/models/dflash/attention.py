@@ -1,5 +1,5 @@
 import torch
-from torch.nn.attention.flex_attention import (
+from speculators.models.attention import (
     or_masks,
 )
 

@@ -108,6 +108,10 @@ def main():
     if disable_cp_arg not in cmd:
         cmd.append(disable_cp_arg)
 
+    disable_pc_arg = "--no--enable-prefix-caching"
+    if disable_pc_arg not in cmd:
+        cmd.append(disable_pc_arg)
+
     print("Running command:")
     print(" ".join(cmd))
 

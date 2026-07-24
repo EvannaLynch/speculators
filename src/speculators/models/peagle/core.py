@@ -234,8 +234,13 @@ class PEagleDraftModel(Eagle3DraftModel):
             kwargs.get("target_layer_ids"), kwargs["verifier_name_or_path"]
         )
 
+        from speculators.utils.util import is_npu_available
+
+        _default = (
+            "npu_fusion_attention" if is_npu_available() else "simple_flex_attention"
+        )
         verifier_config._attn_implementation = kwargs.get(  # noqa: SLF001
-            "draft_attn_impl", "simple_flex_attention"
+            "draft_attn_impl", _default
         )
 
         config = PEagleSpeculatorConfig(

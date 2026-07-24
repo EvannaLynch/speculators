@@ -1,10 +1,11 @@
 import torch
-from torch.nn.attention.flex_attention import (
-    BlockMask,
-    and_masks,
-    or_masks,
-)
 
+try:
+    from torch.nn.attention.flex_attention import BlockMask
+except ImportError:
+    BlockMask = None  # type: ignore[assignment]
+
+from speculators.models.attention import and_masks, or_masks
 from speculators.models.attention import ALL_ATTENTION_FUNCTIONS  # noqa: F401
 
 
@@ -71,6 +72,11 @@ def extend_mask_for_draft_tokens(block_mask):
     ]
 
     """
+    if BlockMask is None:
+        raise ImportError(
+            "BlockMask (flex_attention) is not available on this platform."
+        )
+    
     kv_num_blocks = block_mask.kv_num_blocks
     # shape: [B, H, Q_LEN // BLOCK_SIZE]
 

@@ -533,7 +533,10 @@ def main(args: argparse.Namespace):  # noqa: C901
     hidden_states_dtype = getattr(torch, args.hidden_states_dtype)
 
     if args.speculator_type == "mtp":
-        if args.draft_attn_impl != "simple_flex_attention":
+        if (
+            args.draft_attn_impl is not None
+            and args.draft_attn_impl != "simple_flex_attention"
+        ):
             raise ValueError(
                 "--draft-attn-impl is not configurable for MTP. "
                 "Must be left with the default value ('simple_flex_attention')."
@@ -1124,10 +1127,12 @@ def parse_args():
     parser.add_argument(
         "--draft-attn-impl",
         type=str,
-        default="simple_flex_attention",
-        choices=["simple_flex_attention", "sdpa", "eager"],
+        default=None,
+        choices=["simple_flex_attention", "sdpa", "eager", "npu_fusion_attention", "npu_fusion_attention"],
         help="Attention implementation for draft layers. "
-        "Use 'sdpa' or 'eager' for hardware that doesn't support flex attention."
+        "Use 'npu_fusion_attention' (or 'npu_fusion_attention') for Ascend NPU. "
+        "Use 'sdpa' or 'eager' as fallbacks. "
+        "Default: auto-detect (npu_fusion_attention on NPU, simple_flex_attention on CUDA). "
         "Not supported for MTP.",
     )
     # P-EAGLE specific parameters

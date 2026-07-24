@@ -5,9 +5,14 @@ import torch
 from transformers import AutoConfig, PretrainedConfig
 
 
+from speculators.utils.util import is_npu_available
+
+
 def conditional_torch_compile(func=None, *args, **kwargs):
     if func is None:
         return partial(conditional_torch_compile, *args, **kwargs)
+    if is_npu_available():
+        return func
     if torch.cuda.is_available() and hasattr(torch, "compile"):
         return torch.compile(func, *args, **kwargs)
     return func

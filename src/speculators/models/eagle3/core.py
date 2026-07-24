@@ -2,7 +2,11 @@ import copy
 from typing import ClassVar
 
 import torch
-from torch.nn.attention.flex_attention import create_block_mask, create_mask
+try:
+    from torch.nn.attention.flex_attention import create_block_mask, create_mask
+except ImportError:
+    create_block_mask = None  # type: ignore[assignment]
+    create_mask = None  # type: ignore[assignment]
 from transformers import AutoConfig, DynamicCache, PretrainedConfig
 
 from speculators.config import SpeculatorsConfig, VerifierConfig
@@ -43,8 +47,10 @@ class Eagle3DraftModel(DraftVocabMixin, SpeculatorModel):
     def __init__(self, config: Eagle3SpeculatorConfig):
         # Forcibly override config settings
         if config.transformer_layer_config._attn_implementation is None:  # noqa: SLF001
+            from speculators.utils.util import is_npu_available
+
             config.transformer_layer_config._attn_implementation = (  # noqa: SLF001
-                "simple_flex_attention"
+                "npu_fusion_attention" if is_npu_available() else "simple_flex_attention"
             )
         self._attn_impl = config.transformer_layer_config._attn_implementation  # noqa: SLF001
         self._create_mask_fn = (
@@ -393,8 +399,13 @@ class Eagle3DraftModel(DraftVocabMixin, SpeculatorModel):
             kwargs.get("target_layer_ids"), kwargs["verifier_name_or_path"]
         )
 
+        from speculators.utils.util import is_npu_available
+
+        _default = (
+            "npu_fusion_attention" if is_npu_available() else "simple_flex_attention"
+        )
         verifier_config._attn_implementation = kwargs.get(  # noqa: SLF001
-            "draft_attn_impl", "simple_flex_attention"
+            "draft_attn_impl", _default
         )
 
         config = Eagle3SpeculatorConfig(

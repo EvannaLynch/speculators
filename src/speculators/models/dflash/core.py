@@ -3,7 +3,11 @@ from typing import ClassVar
 
 import torch
 from torch import nn
-from torch.nn.attention.flex_attention import create_block_mask, create_mask
+try:
+    from torch.nn.attention.flex_attention import create_block_mask, create_mask
+except ImportError:
+    create_block_mask = None  # type: ignore[assignment]
+    create_mask = None  # type: ignore[assignment]
 from transformers import PretrainedConfig
 from transformers.models.qwen3.modeling_qwen3 import (
     Qwen3RMSNorm,
@@ -22,12 +26,16 @@ from speculators.models.dflash.utils import (
 )
 from speculators.models.metrics import LossConfig, resolve_loss_config
 from speculators.models.utils import conditional_torch_compile, resolve_target_layer_ids
+from speculators.utils.util import is_npu_available
 
 logger = logging.getLogger(__name__)
 
 # Compile so the mask builds block-sparse instead of materializing DFlash's huge
 # dense [Q, KV] grid every step. (No benefit for EAGLE3's small autoregressive mask.)
-_compiled_create_block_mask = torch.compile(create_block_mask)
+# Skip compilation on NPU — npu_fusion_attention uses dense masks.
+_compiled_create_block_mask = (
+    create_block_mask if is_npu_available() else torch.compile(create_block_mask)
+)
 
 
 @SpeculatorModel.register("dflash")
@@ -58,7 +66,7 @@ class DFlashDraftModel(DraftVocabMixin, SpeculatorModel):
         # Forcibly override config settings
         if config.transformer_layer_config._attn_implementation is None:  # noqa: SLF001
             config.transformer_layer_config._attn_implementation = (  # noqa: SLF001
-                "simple_flex_attention"
+                "npu_fusion_attention" if is_npu_available() else "simple_flex_attention"
             )
         self._attn_impl = config.transformer_layer_config._attn_implementation  # noqa: SLF001
         self._create_mask_fn = (
@@ -186,8 +194,11 @@ class DFlashDraftModel(DraftVocabMixin, SpeculatorModel):
         target_layer_ids = resolve_target_layer_ids(
             kwargs.get("target_layer_ids"), kwargs["verifier_name_or_path"]
         )
+        _default = (
+            "npu_fusion_attention" if is_npu_available() else "simple_flex_attention"
+        )
         verifier_config._attn_implementation = kwargs.get(  # noqa: SLF001
-            "draft_attn_impl", "simple_flex_attention"
+            "draft_attn_impl", _default
         )
         block_size = kwargs.get("block_size", 8)
 
